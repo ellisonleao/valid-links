@@ -44,6 +44,12 @@ Examples
 
     $ vl README.md --debug
     $ vl README.md -t 10 --size=1000 --debug
+    
+
+Do i need this lib?
+-------------------
+
+I don't know! Currently i am using to check for bad links on my `magitools <https://github.com/ellisonleao/magictools>`_ README file. I hope it can serve for many purposes in the future. 
 
 
 Roadmap
