@@ -8,9 +8,9 @@ dependencies = open('requirements.txt').read().split()
 description = open('README.rst').read()
 
 setup(
-    name='valid_links',
+    name='vl',
     version='0.1.0',
-    url='https://github.com/ellisonleao/valid-links',
+    url='https://github.com/ellisonleao/vl',
     license='MIT',
     author='Ellison Leão',
     author_email='ellisonleao@gmail.com',
@@ -23,7 +23,7 @@ setup(
     install_requires=dependencies,
     entry_points={
         'console_scripts': [
-            'vl = valid_links.cli:main',
+            'vl = vl.cli:main',
         ],
     },
     classifiers=[

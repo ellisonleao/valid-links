@@ -5,7 +5,7 @@ import responses
 from requests.exceptions import HTTPError
 from click.testing import CliRunner
 
-from valid_links import cli
+from vl import cli
 
 
 @pytest.fixture

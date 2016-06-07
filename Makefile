@@ -1,10 +1,10 @@
 .PHONY: test
 test: pep8
-	py.test --cov-report term-missing --cov valid_links
+	py.test --cov-report term-missing --cov vl
 
 .PHONY: pep8
 pep8:
-	@flake8 * --ignore=F403,F401 --exclude=requirements.txt,*.pyc,*.md,Makefile,LICENSE,*.in,*.rst,*.ini,docs,requirements_dev.txt,coverage.xml,setup.cfg
+	@flake8 * --ignore=F403,F401 --exclude=requirements.txt,*.pyc,*.md,Makefile,LICENSE,*.in,*.rst,requirements_dev.txt,setup.cfg
 
 .PHONY: clean-pyc clean-build clean
 clean: clean-build clean-pyc
