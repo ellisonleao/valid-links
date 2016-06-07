@@ -4,7 +4,6 @@ python:
     - "3.3"
     - "3.4"
     - "3.5"
-    - "pypy"
 before_install:
     - "pip install -r requirements.txt"
     - "pip install -r requirements_dev.txt"
