@@ -8,41 +8,108 @@ from click.testing import CliRunner
 from vl import cli
 
 
+def reset_globals():
+    cli.ERRORS = []
+    cli.DUPES = []
+    cli.EXCEPTIONS = []
+
+
 @pytest.fixture
 def runner():
     return CliRunner()
 
 
+@pytest.fixture
+def valid_urls():
+    return """
+Valid Urls
+==========
+
+* [Test Link1](http://www.test1.com)
+* [Test Link2](http://www.test2.com)
+* [Test Link3](http://www.test3.com)
+"""
+
+
+@pytest.fixture
+def some_errors():
+    return """
+Valid Urls and Some Errors
+==========================
+
+* [Test Link1](http://www.test1.com)
+* [Bad Link](http://www.badlink1.com)
+* [Bad Link2](http://www.badlink2.com)
+* [Bad Link3](http://www.badlink3.com)
+* [Bad Link3](http://www.badlink4.com)
+* [Bad Link5](http://www.badlink5.com)
+* [Bad Link6](http://www.badlink6.com)
+* [Bad Link7](http://www.badlink7.com)
+* [Bad Link8](http://www.badlink8.com)
+* [Bad Link9](http://www.badlink9.com)
+* [Exception](http://www.exception.com)
+* [Test Link2](http://www.test2.com)
+"""
+
+
+@pytest.fixture
+def dupes():
+    return """
+Valid Urls With Some Dupes
+==========================
+
+* [Dupe1](http://www.dupe1.com)
+* [Dupe1](http://www.dupe1.com)
+* [Dupe1](http://www.dupe1.com)
+* [Test Link2](http://www.test2.com)
+"""
+
+
 def test_cli_no_args(runner):
+    reset_globals()
     result = runner.invoke(cli.main)
     assert result.exit_code == 2
 
 
 @responses.activate
-def test_cli_with_valid_urls(runner):
-    valid_urls = [
-        'http://www.test1.com',
-        'http://www.test2.com',
-        'http://www.test3.com',
-    ]
-    for url in valid_urls:
-        responses.add(responses.GET, url, status=200)
+def test_cli_with_valid_urls(runner, valid_urls):
+    reset_globals()
+    urls = (
+        ('http://www.test1.com', 200),
+        ('http://www.test2.com', 200),
+        ('http://www.test3.com', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.GET, url, status=code)
 
-    result = runner.invoke(cli.main, ['tests/valid_urls.md'])
+    with runner.isolated_filesystem():
+        with open('valid_urls.md', 'w') as f:
+            f.write(valid_urls)
 
-    assert result.exit_code == 0
+        result = runner.invoke(cli.main, ['valid_urls.md', '--debug'])
+        print(result.output)
+        assert result.exit_code == 0
+        assert len(cli.ERRORS) == 0
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.DUPES) == 0
 
 
 @responses.activate
-def test_cli_with_valid_and_bad_urls(runner):
-    urls = [
+def test_cli_with_valid_and_bad_urls(runner, some_errors):
+    reset_globals()
+    urls = (
         ('http://www.test1.com', 200),
         ('http://www.test2.com', 200),
-        ('http://www.badlink1.com', 403),
-        ('http://www.badlink2.com', 404),
-        ('http://www.badlink3.com', 503),
-        ('http://www.badlink4.com', 500),
-    ]
+        ('http://www.badlink1.com', 500),
+        ('http://www.badlink2.com', 501),
+        ('http://www.badlink3.com', 502),
+        ('http://www.badlink4.com', 503),
+        ('http://www.badlink5.com', 504),
+        ('http://www.badlink6.com', 401),
+        ('http://www.badlink7.com', 402),
+        ('http://www.badlink8.com', 404),
+        ('http://www.badlink9.com', 409),
+    )
     for url, code in urls:
         responses.add(responses.GET, url, status=code)
 
@@ -50,7 +117,34 @@ def test_cli_with_valid_and_bad_urls(runner):
     responses.add(responses.GET, 'http://www.exception.com',
                   body=exception)
 
-    result = runner.invoke(cli.main, ['tests/some_errors.md', '--debug'])
-    assert result.exit_code == 1
-    assert len(cli.ERRORS) == 4
-    assert len(cli.EXCEPTIONS) == 1
+    with runner.isolated_filesystem():
+        with open('some_errors.md', 'w') as f:
+            f.write(some_errors)
+
+        result = runner.invoke(cli.main, ['some_errors.md', '--debug'])
+        assert result.exit_code == 1
+        assert len(cli.ERRORS) == 6
+        assert len(cli.EXCEPTIONS) == 1
+        assert len(cli.DUPES) == 0
+
+
+@responses.activate
+def test_cli_with_dupes(runner, dupes):
+    reset_globals()
+    urls = (
+        ('http://www.dupe1.com', 200),
+        ('http://www.test2.com', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.GET, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('dupes.md', 'w') as f:
+            f.write(dupes)
+
+        result = runner.invoke(cli.main, ['dupes.md', '--debug'])
+        print(result.output)
+        assert result.exit_code == 1
+        assert len(cli.ERRORS) == 0
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.DUPES) == 1

@@ -1,14 +1,12 @@
 v.l.
 ====
 
-
 .. image:: https://img.shields.io/pypi/v/vl.svg
    :target: https://pypi.python.org/pypi/vl
 .. image:: https://img.shields.io/travis/ellisonleao/vl.svg
    :target: https://travis-ci.org/ellisonleao/vl
 
-Link validation on text files.
-
+A URL link checker CLI command for text files. Heavily inspired on `awesome_bot <https://github.com/dkhamsing/awesome_bot>`_
 
 Installation
 ------------
@@ -53,3 +51,4 @@ Roadmap
 
 * How can we make it faster?!
 * Add whitelist param
+* API

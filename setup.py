@@ -14,7 +14,7 @@ setup(
     license='MIT',
     author='Ellison Leão',
     author_email='ellisonleao@gmail.com',
-    description=description,
+    description='A URL link checker CLI command for text files.',
     long_description=description,
     packages=find_packages(exclude=['tests']),
     include_package_data=True,
