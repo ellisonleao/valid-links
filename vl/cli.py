@@ -12,11 +12,10 @@ except ImportError:
 import click
 import grequests
 
-LINK_RE = re.compile(r'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.]'
-                     r'[a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]'
-                     r'+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`'
-                     r'!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019])'
-                     r')')
+LINK_RE = re.compile(r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www'
+                     r'\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]'
+                     r'+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]'
+                     r'+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
 ERRORS = []
 EXCEPTIONS = []
 
@@ -58,9 +57,10 @@ def main(doc, timeout, size, debug):
         403: 'red',
         404: 'red',
         500: 'red',
-        503: 'red'
+        503: 'red',
+        502: 'red'
     }
-    error_codes = [400, 403, 500, 503, 404]
+    error_codes = [400, 403, 500, 502, 503, 404]
 
     for res in responses:
         if res.status_code in error_codes:
