@@ -9,7 +9,7 @@ description = open('README.rst').read()
 
 setup(
     name='vl',
-    version='0.1.0',
+    version='0.2.0',
     url='https://github.com/ellisonleao/vl',
     license='MIT',
     author='Ellison Leão',
