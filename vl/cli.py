@@ -19,6 +19,8 @@ LINK_RE = re.compile(r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www'
                      r'+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]'
                      r'+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]'
                      r'))')
+ERROR_CODE_RE = re.compile(r'([4|5][\d]{2})')
+
 ERRORS = []
 EXCEPTIONS = []
 DUPES = []
@@ -35,6 +37,17 @@ def is_static(url):
     return path.endswith(static)
 
 
+def validade_allowed_codes(ctx, param, value):
+    if not value:
+        return
+    try:
+        codes = value.split(',')
+        codes = list(filter(lambda x: ERROR_CODE_RE.match(x), codes))
+    except ValueError:
+        raise click.BadParameter('--allow-codes param must be comma splitted')
+    return value
+
+
 @click.command()
 @click.argument('doc', type=click.File())
 @click.option('timeout', '-t', '--timeout', default=2.0, type=click.FLOAT,
@@ -45,9 +58,35 @@ def is_static(url):
 @click.option('-d', '--debug', is_flag=True,
               help=('Prints out some debug information like execution time'
                     ' and exception messages'))
-def main(doc, timeout, size, debug):
+@click.option('allow_codes', '-a', '--allow-codes',
+              callback=validade_allowed_codes, help=('A comma splitted http '
+                                                     'response allowed codes'))
+def main(doc, timeout, size, debug, allow_codes):
+    """
+    Examples:
+    simple call
+    $ vl README.md
+
+    Adding debug outputs
+
+    $ vl README.md --debug
+
+    Adding a custom timeout for each url. time on seconds.
+
+    $ vl README.md -t 3
+
+    Adding a custom size param, to add more requests per time
+
+    $ vl README -s 1000
+
+    Skipping some error codes. This will allow 500 and 404 responses to
+    be ignored
+
+    $ vl README.md -a 500,404
+    """
     t1 = time.time()
     links = [i[0] for i in LINK_RE.findall(doc.read())]
+    allow_codes = allow_codes or []
     counts = Counter(links)
     counts_keys = counts.keys()
     DUPES.extend([i for i in counts_keys if counts[i] > 1])
@@ -62,30 +101,16 @@ def main(doc, timeout, size, debug):
     responses = grequests.imap(requests, exception_handler=handle_exception,
                                size=size)
 
-    colors = {
-        200: 'green',
-        301: 'yellow',
-        401: 'red',
-        402: 'red',
-        403: 'red',
-        404: 'red',
-        500: 'red',
-        501: 'red',
-        502: 'red',
-        503: 'red',
-        504: 'red',
-    }
-    error_codes = [400, 401, 403, 404, 500, 501, 502, 503]
-
     for res in responses:
-        if res.status_code in error_codes:
+        status_code = str(res.status_code)
+        is_error_code = ERROR_CODE_RE.match(status_code)
+        if is_error_code and status_code not in allow_codes:
             ERRORS.append((res.status_code, res.url))
+            color = 'red'
+        else:
+            color = 'green'
 
         url = click.style('{0}'.format(res.url), fg='white')
-        try:
-            color = colors[res.status_code]
-        except KeyError:
-            color = 'red'
         status = click.style(str(res.status_code), fg=color, bold=True)
         click.secho('- {0} {1}'.format(url, status), fg='green')
 
@@ -103,6 +128,8 @@ def main(doc, timeout, size, debug):
     if exceptions_len and debug:
         click.echo()
         click.echo('Exceptions raised:')
+        click.secho('Check URLs for possible false positives', fg='yellow')
+        click.echo()
         for url, exception in EXCEPTIONS:
             click.echo('- {0}'.format(url))
             click.secho('{0}'.format(exception), fg='red', bold=True)

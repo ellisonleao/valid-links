@@ -123,7 +123,7 @@ def test_cli_with_valid_and_bad_urls(runner, some_errors):
 
         result = runner.invoke(cli.main, ['some_errors.md', '--debug'])
         assert result.exit_code == 1
-        assert len(cli.ERRORS) == 6
+        assert len(cli.ERRORS) == 9
         assert len(cli.EXCEPTIONS) == 1
         assert len(cli.DUPES) == 0
 
@@ -148,3 +148,26 @@ def test_cli_with_dupes(runner, dupes):
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
         assert len(cli.DUPES) == 1
+
+
+@responses.activate
+def test_cli_with_allow_codes(runner, valid_urls):
+    reset_globals()
+    urls = (
+        ('http://www.test1.com', 200),
+        ('http://www.test2.com', 404),
+        ('http://www.test3.com', 500),
+    )
+    for url, code in urls:
+        responses.add(responses.GET, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('valid.md', 'w') as f:
+            f.write(valid_urls)
+
+        result = runner.invoke(cli.main, ['valid.md', '-a 404,500',
+                                          '--debug'])
+        assert result.exit_code == 0
+        assert len(cli.ERRORS) == 0
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.DUPES) == 0
