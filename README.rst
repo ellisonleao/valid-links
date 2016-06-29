@@ -1,5 +1,6 @@
-v.l.
-====
+v(erify)l(inks)
+===============
+
 
 .. image:: https://img.shields.io/pypi/v/vl.svg
    :target: https://pypi.python.org/pypi/vl
@@ -24,37 +25,51 @@ To use it:
 
 .. code-block:: shell
 
-    Usage: vl [OPTIONS] DOC
+	Usage: vl [OPTIONS] DOC
 
-      Main CLI method
+	  Examples: simple call $ vl README.md
 
-    Options:
-      -t, --timeout FLOAT  request timeout arg. Default is 2 seconds
-      -s, --size INTEGER   Specifies the number of requests to make at a time.
-                           default is 100
-      -d, --debug          Prints out some debug information like execution time
-                           and exception messages
-      --help               Show this message and exit
+	  Adding debug outputs
 
+	  $ vl README.md --debug
 
-Examples
---------
+	  Adding a custom timeout for each url. time on seconds.
 
-.. code-block:: shell
+	  $ vl README.md -t 3
 
-    $ vl README.md --debug
-    $ vl README.md -t 10 --size=1000 --debug
-    
+	  Adding a custom size param, to add more requests per time
+
+	  $ vl README -s 1000
+
+	  Skipping some error codes. This will allow 500 and 404 responses to be
+	  ignored
+
+	  $ vl README.md -a 500,404
+
+	  Adding Whitelists
+
+	  $ vl README.md -w server1.com,server2.com
+
+	Options:
+	  --version               Show the version and exit.
+	  -t, --timeout FLOAT     request timeout arg. Default is 2 seconds
+	  -s, --size INTEGER      Specifies the number of requests to make at a time.
+							  default is 100
+	  -d, --debug             Prints out some debug information like execution
+							  time and exception messages
+	  -a, --allow-codes TEXT  A comma splitted http response allowed codes
+	  -w, --whitelist TEXT    A comma splitted whitelist urls
+	  --help                  Show this message and exit.
+
 
 Do i need this lib?
 -------------------
 
-I don't know! Currently i am using to check for bad links on my `magitools <https://github.com/ellisonleao/magictools>`_ README file. I hope it can serve for many purposes in the future. 
+I don't know! Currently i am using to check for bad links on my `magitools <https://github.com/ellisonleao/magictools>`_ README file. I hope it can serve for many purposes in the future.
 
 
 Roadmap
 -------
 
 * How can we make it faster?!
-* Add whitelist param
 * API
