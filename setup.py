@@ -4,15 +4,18 @@
 from __future__ import unicode_literals
 from setuptools import find_packages, setup
 
+__version__ = '0.3.1'
+__author__ = 'Ellison Leão'
+
 dependencies = open('requirements.txt').read().split()
 description = open('README.rst').read()
 
 setup(
     name='vl',
-    version='0.3.0',
+    version=__version__,
     url='https://github.com/ellisonleao/vl',
     license='MIT',
-    author='Ellison Leão',
+    author=__author__,
     author_email='ellisonleao@gmail.com',
     description='A URL link checker CLI command for text files.',
     long_description=description,

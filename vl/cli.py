@@ -61,6 +61,7 @@ def validate_whitelist(ctx, param, value):
 
 
 @click.command()
+@click.version_option()
 @click.argument('doc', type=click.File())
 @click.option('timeout', '-t', '--timeout', default=2.0, type=click.FLOAT,
               help='request timeout arg. Default is 2 seconds')
@@ -98,6 +99,10 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     be ignored
 
     $ vl README.md -a 500,404
+
+    Adding Whitelists
+
+    $ vl README.md -w server1.com,server2.com
     """
     t1 = time.time()
     links = [i[0] for i in LINK_RE.findall(doc.read())]
