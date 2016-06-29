@@ -13,3 +13,6 @@ notifications:
     email:
         recipients:
             - "ellisonleao@gmail.com"
+addons:
+    code_climate:
+        repo_token: adcbe842235cb3d400a4e9fd2b97c745439d2c05f05dd46345fe3da3bf51e0ea
