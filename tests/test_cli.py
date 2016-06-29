@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import pytest
 import responses
 from requests.exceptions import HTTPError
@@ -12,6 +10,7 @@ def reset_globals():
     cli.ERRORS = []
     cli.DUPES = []
     cli.EXCEPTIONS = []
+    cli.WHITELISTED = []
 
 
 @pytest.fixture
@@ -65,6 +64,22 @@ Valid Urls With Some Dupes
 """
 
 
+@pytest.fixture
+def whitelists():
+    return """
+Valid Urls With Some Dupes
+==========================
+
+* [link1](http://www.test.com)
+* [link2](http://www.whitelisted.com)
+* [link3](http://whitelisted.com)
+* [link4](http://whitelisted.com/test.html)
+* [link5](http://test.whitelisted.com/?arg=1&arg=2)
+* [link6](http://white-listed.com/)
+* [link7](http://www.test2.com)
+"""
+
+
 def test_cli_no_args(runner):
     reset_globals()
     result = runner.invoke(cli.main)
@@ -87,7 +102,6 @@ def test_cli_with_valid_urls(runner, valid_urls):
             f.write(valid_urls)
 
         result = runner.invoke(cli.main, ['valid_urls.md', '--debug'])
-        print(result.output)
         assert result.exit_code == 0
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
@@ -143,8 +157,7 @@ def test_cli_with_dupes(runner, dupes):
             f.write(dupes)
 
         result = runner.invoke(cli.main, ['dupes.md', '--debug'])
-        print(result.output)
-        assert result.exit_code == 1
+        assert result.exit_code == 0
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
         assert len(cli.DUPES) == 1
@@ -155,8 +168,8 @@ def test_cli_with_allow_codes(runner, valid_urls):
     reset_globals()
     urls = (
         ('http://www.test1.com', 200),
-        ('http://www.test2.com', 404),
         ('http://www.test3.com', 500),
+        ('http://www.test2.com', 404),
     )
     for url, code in urls:
         responses.add(responses.GET, url, status=code)
@@ -167,7 +180,60 @@ def test_cli_with_allow_codes(runner, valid_urls):
 
         result = runner.invoke(cli.main, ['valid.md', '-a 404,500',
                                           '--debug'])
+
         assert result.exit_code == 0
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
         assert len(cli.DUPES) == 0
+
+
+@responses.activate
+def test_cli_with_whitelist(runner, whitelists):
+    reset_globals()
+    urls = (
+        ('http://www.test.com', 200),
+        ('http://www.whitelisted.com', 200),
+        ('http://whitelisted.com', 200),
+        ('http://whitelisted.com/test.html', 200),
+        ('http://test.whitelisted.com/', 200),
+        ('http://white-listed.com/', 200),
+        ('http://www.test2.com', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.GET, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('whitelist.md', 'w') as f:
+            f.write(whitelists)
+
+        result = runner.invoke(cli.main, ['whitelist.md', '-w whitelisted.com',
+                                          '--debug'])
+        assert result.exit_code == 0
+        assert len(cli.ERRORS) == 0
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.DUPES) == 0
+        assert len(cli.WHITELISTED) == 4
+
+
+@responses.activate
+def test_cli_with_bad_whitelist(runner, whitelists):
+    reset_globals()
+    urls = (
+        ('http://www.test.com', 200),
+        ('http://www.whitelisted.com', 200),
+        ('http://whitelisted.com', 200),
+        ('http://whitelisted.com/test.html', 200),
+        ('http://test.whitelisted.com/', 200),
+        ('http://white-listed.com/', 200),
+        ('http://www.test2.com', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.GET, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('whitelist.md', 'w') as f:
+            f.write(whitelists)
+
+        result = runner.invoke(cli.main, ['whitelist.md', '--whitelist ',
+                                          '--debug'])
+        assert result.exit_code == 2
