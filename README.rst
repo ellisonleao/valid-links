@@ -6,6 +6,8 @@ v(erify)l(inks)
    :target: https://pypi.python.org/pypi/vl
 .. image:: https://img.shields.io/travis/ellisonleao/vl.svg
    :target: https://travis-ci.org/ellisonleao/vl
+.. image:: https://img.shields.io/pypi/dm/vl.svg?maxAge=2592000
+   :target: https://pypi.python.org/pypi/vl
 
 A URL link checker CLI command for text files. Heavily inspired on `awesome_bot <https://github.com/dkhamsing/awesome_bot>`_
 
