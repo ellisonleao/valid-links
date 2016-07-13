@@ -67,7 +67,7 @@ To use it:
 Do i need this lib?
 -------------------
 
-I don't know! Currently i am using to check for bad links on my `magitools <https://github.com/ellisonleao/magictools>`_ README file. I hope it can serve for many purposes in the future.
+I don't know! Currently i am using to check for bad links on my `magictools <https://github.com/ellisonleao/magictools>`_ README file. I hope it can serve for many purposes in the future.
 
 
 Roadmap
