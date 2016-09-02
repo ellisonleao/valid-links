@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 from setuptools import find_packages, setup
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 __author__ = 'Ellison Leão'
 
 dependencies = open('requirements.txt').read().split()
