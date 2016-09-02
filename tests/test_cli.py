@@ -31,6 +31,19 @@ Valid Urls
 
 
 @pytest.fixture
+def valid_urls_with_static():
+    return """
+Valid Urls
+==========
+
+* [Test Link1](http://www.test1.com)
+* [Test Link2](http://www.test2.com)
+* [Test Link3](http://www.test3.com)
+* [Test Link4](http://www.test3.com/1.gif)
+"""
+
+
+@pytest.fixture
 def some_errors():
     return """
 Valid Urls and Some Errors
@@ -48,6 +61,7 @@ Valid Urls and Some Errors
 * [Bad Link9](http://www.badlink9.com)
 * [Exception](http://www.exception.com)
 * [Test Link2](http://www.test2.com)
+* [No Scheme](www.test2.com)
 """
 
 
@@ -86,6 +100,25 @@ def test_cli_no_args(runner):
     assert result.exit_code == 2
 
 
+def test_cli_bad_allow_codes(runner, valid_urls):
+    reset_globals()
+    urls = (
+        ('http://www.test1.com', 200),
+        ('http://www.test2.com', 200),
+        ('http://www.test3.com', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.HEAD, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('valid_urls.md', 'w') as f:
+            f.write(valid_urls)
+
+        result = runner.invoke(cli.main, ['valid_urls.md', '--debug',
+                                          '--allow-codes', '123-456'])
+        assert result.exit_code == 2
+
+
 @responses.activate
 def test_cli_with_valid_urls(runner, valid_urls):
     reset_globals()
@@ -95,7 +128,7 @@ def test_cli_with_valid_urls(runner, valid_urls):
         ('http://www.test3.com', 200),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     with runner.isolated_filesystem():
         with open('valid_urls.md', 'w') as f:
@@ -125,10 +158,10 @@ def test_cli_with_valid_and_bad_urls(runner, some_errors):
         ('http://www.badlink9.com', 409),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     exception = HTTPError('BAD!')
-    responses.add(responses.GET, 'http://www.exception.com',
+    responses.add(responses.HEAD, 'http://www.exception.com',
                   body=exception)
 
     with runner.isolated_filesystem():
@@ -150,7 +183,7 @@ def test_cli_with_dupes(runner, dupes):
         ('http://www.test2.com', 200),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     with runner.isolated_filesystem():
         with open('dupes.md', 'w') as f:
@@ -172,7 +205,7 @@ def test_cli_with_allow_codes(runner, valid_urls):
         ('http://www.test2.com', 404),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     with runner.isolated_filesystem():
         with open('valid.md', 'w') as f:
@@ -200,7 +233,7 @@ def test_cli_with_whitelist(runner, whitelists):
         ('http://www.test2.com', 200),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     with runner.isolated_filesystem():
         with open('whitelist.md', 'w') as f:
@@ -228,7 +261,7 @@ def test_cli_with_bad_whitelist(runner, whitelists):
         ('http://www.test2.com', 200),
     )
     for url, code in urls:
-        responses.add(responses.GET, url, status=code)
+        responses.add(responses.HEAD, url, status=code)
 
     with runner.isolated_filesystem():
         with open('whitelist.md', 'w') as f:
@@ -237,3 +270,26 @@ def test_cli_with_bad_whitelist(runner, whitelists):
         result = runner.invoke(cli.main, ['whitelist.md', '--whitelist ',
                                           '--debug'])
         assert result.exit_code == 2
+
+
+@responses.activate
+def test_cli_with_static(runner, valid_urls_with_static):
+    reset_globals()
+    urls = (
+        ('http://www.test1.com', 200),
+        ('http://www.test2.com', 200),
+        ('http://www.test3.com', 200),
+        ('http://www.test3.com/1.gif', 200),
+    )
+    for url, code in urls:
+        responses.add(responses.HEAD, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('with_static.md', 'w') as f:
+            f.write(valid_urls_with_static)
+
+        result = runner.invoke(cli.main, ['with_static.md', '--debug'])
+        assert result.exit_code == 0
+        assert len(cli.ERRORS) == 0
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.STATICS) == 1

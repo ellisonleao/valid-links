@@ -9,7 +9,7 @@ import six
 if six.PY2:
     from urlparse import urlparse
     strip_func = unicode.strip
-else:
+else:  # pragma: nocover
     from urllib.parse import urlparse
     strip_func = str.strip
 
@@ -24,6 +24,7 @@ ERRORS = []
 EXCEPTIONS = []
 DUPES = []
 WHITELISTED = []
+STATICS = []
 
 
 def handle_exception(request, exception):
@@ -40,24 +41,21 @@ def is_static(url):
 def validate_allowed_codes(ctx, param, value):
     if not value:
         return []
-    try:
-        codes = value.split(',')
-        codes = list(map(strip_func, codes))
-        codes = list(filter(lambda x: ERROR_CODE_RE.match(x), codes))
-        return codes
-    except ValueError:
+    codes = value.split(',')
+    codes = list(map(strip_func, codes))
+    codes = list(filter(lambda x: ERROR_CODE_RE.match(x), codes))
+    if not codes:
         raise click.BadParameter('--allow-codes param must be comma splitted')
+    return codes
 
 
 def validate_whitelist(ctx, param, value):
     if not value:
         return []
-    try:
-        whitelist = value.split(',')
-        whitelist = list(map(strip_func, whitelist))
-        return whitelist
-    except ValueError:
-        raise click.BadParameter('--whitelist param must be comma splitted')
+
+    whitelist = value.split(',')
+    whitelist = list(map(strip_func, whitelist))
+    return whitelist
 
 
 @click.command()
@@ -112,6 +110,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     for link in links:
         # no static
         if is_static(link):
+            STATICS.append(link)
             continue
 
         # no dupes
@@ -138,7 +137,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     counts_keys = counts.keys()
     DUPES.extend([(i, counts[i]) for i in counts_keys if counts[i] > 1])
 
-    requests = (grequests.get(u, timeout=timeout) for u in request_urls)
+    requests = (grequests.head(u, timeout=timeout) for u in request_urls)
     responses = grequests.imap(requests, exception_handler=handle_exception,
                                size=size)
 
@@ -153,9 +152,8 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
             else:
                 WHITELISTED.append(res.url)
 
-        url = click.style('{0}'.format(res.url), fg='white')
-        status = click.style(str(res.status_code), fg=color, bold=True)
-        click.secho('- {0} {1}'.format(url, status), fg='green')
+        status = click.style(str(res.status_code), fg=color)
+        click.echo('[{}] {}'.format(status, res.url))
 
     errors_len = len(ERRORS)
     exceptions_len = len(EXCEPTIONS)
@@ -166,8 +164,8 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
         click.echo()
         click.echo('Failed URLs:')
         for code, url in ERRORS:
-            code = click.style('{0}'.format(code), bold=True)
-            click.secho('- {0} {1}'.format(url, code), fg='red')
+            code = click.secho('{}'.format(code), fg='red')
+            click.echo('[{0}] {1}'.format(code, url))
 
     if exceptions_len and debug:
         click.echo()
@@ -181,8 +179,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
             click.secho('{0}'.format(exception), fg='red', bold=True)
             click.echo()
 
-    if dupes_len and debug:
-        click.echo()
+    if dupes_len and debug:  # pragma: nocover
         click.echo('Dupes:')
         for url, count in DUPES:
             click.secho('- {0} - {1} times'.format(url, count), fg='yellow',
@@ -199,12 +196,10 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     click.secho('Total Exceptions {0}'.format(exceptions_len), fg='red')
     click.secho('Total Dupes {0}'.format(dupes_len), fg='yellow')
     click.secho('Total whitelisted {0}'.format(white_len), fg='yellow')
+    click.secho('Total static {0}'.format(len(STATICS)), fg='yellow')
 
     if debug:
         click.echo('Execution time: {0:.2f} seconds'.format(time.time() - t1))
 
     if errors_len:
         sys.exit(1)
-
-if __name__ == "__main__":
-    main()
