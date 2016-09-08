@@ -1,11 +1,14 @@
 v(erify)l(inks)
 ===============
 
-
 .. image:: https://img.shields.io/pypi/v/vl.svg
    :target: https://pypi.python.org/pypi/vl
 .. image:: https://img.shields.io/travis/ellisonleao/vl.svg
    :target: https://travis-ci.org/ellisonleao/vl
+.. image:: https://landscape.io/github/ellisonleao/vl/master/landscape.svg?style=flat
+   :target: https://landscape.io/github/ellisonleao/vl/master
+.. image:: https://coveralls.io/repos/github/ellisonleao/vl/badge.svg?branch=master
+   :target: https://coveralls.io/github/ellisonleao/vl?branch=master
 
 
 A URL link checker CLI command for text files. Heavily inspired on `awesome_bot <https://github.com/dkhamsing/awesome_bot>`_
