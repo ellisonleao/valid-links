@@ -15,6 +15,11 @@ else:  # pragma: nocover
 
 import click
 import grequests
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+# disabling InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # globals
 # flake8: noqa
@@ -63,7 +68,7 @@ def validate_whitelist(ctx, param, value):
 @click.argument('doc', type=click.File())
 @click.option('timeout', '-t', '--timeout', default=2.0, type=click.FLOAT,
               help='request timeout arg. Default is 2 seconds')
-@click.option('size', '-s', '--size', default=100, type=click.INT,
+@click.option('size', '-s', '--size', type=click.INT,
               help=('Specifies the number of requests to make at a time. '
                     'default is 100'))
 @click.option('-d', '--debug', is_flag=True,
@@ -89,7 +94,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
 
     $ vl README.md -t 3
 
-    Adding a custom size param, to add more requests per time
+    Adding a custom size param, to add throttle n requests per time
 
     $ vl README -s 1000
 
@@ -102,7 +107,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
 
     $ vl README.md -w server1.com,server2.com
     """
-    t1 = time.time()
+    t0 = time.time()
     links = [i[0] for i in LINK_RE.findall(doc.read())]
     request_urls = []
     counts = {}
@@ -137,7 +142,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     counts_keys = counts.keys()
     DUPES.extend([(i, counts[i]) for i in counts_keys if counts[i] > 1])
 
-    requests = (grequests.head(u, timeout=timeout) for u in request_urls)
+    requests = (grequests.head(u, timeout=timeout, verify=False) for u in request_urls)
     responses = grequests.imap(requests, exception_handler=handle_exception,
                                size=size)
 
@@ -164,20 +169,17 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
         click.echo()
         click.echo('Failed URLs:')
         for code, url in ERRORS:
-            code = click.secho('{}'.format(code), fg='red')
+            code = click.style(str(code), fg='red')
             click.echo('[{0}] {1}'.format(code, url))
 
     if exceptions_len and debug:
-        click.echo()
         import ssl
-        click.echo('OpenSSL Version = {0}'.format(ssl.OPENSSL_VERSION))
         click.echo('Exceptions raised:')
+        click.echo('Note: OpenSSL Version = {0}'.format(ssl.OPENSSL_VERSION))
         click.secho('Check URLs for possible false positives', fg='yellow')
-        click.echo()
         for url, exception in EXCEPTIONS:
             click.echo('- {0}'.format(url))
             click.secho('{0}'.format(exception), fg='red', bold=True)
-            click.echo()
 
     if dupes_len and debug:  # pragma: nocover
         click.echo('Dupes:')
@@ -199,7 +201,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     click.secho('Total static {0}'.format(len(STATICS)), fg='yellow')
 
     if debug:
-        click.echo('Execution time: {0:.2f} seconds'.format(time.time() - t1))
+        click.echo('Execution time: {0:.2f} seconds'.format(time.time() - t0))
 
     if errors_len:
         sys.exit(1)
