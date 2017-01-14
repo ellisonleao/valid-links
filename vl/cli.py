@@ -3,51 +3,32 @@
 import re
 import sys
 import time
-import six
-
-# flake8: noqa
-if six.PY2:
-    from urlparse import urlparse
-    strip_func = unicode.strip
-else:  # pragma: nocover
-    from urllib.parse import urlparse
-    strip_func = str.strip
+from urllib.parse import urlparse
+import asyncio
 
 import click
-import grequests
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import aiohttp
+from aiohttp import ClientSession
+import uvloop
 
-# disabling InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-# globals
-# flake8: noqa
-LINK_RE = re.compile(r'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
-ERROR_CODE_RE = re.compile(r'([4|5][\d]{2})')
 ERRORS = []
 EXCEPTIONS = []
 DUPES = []
 WHITELISTED = []
 STATICS = []
 
-
-def handle_exception(request, exception):
-    EXCEPTIONS.append((request.url, exception))
-
-
-def is_static(url):
-    # TODO: try to find a better way of getting static files
-    static = ('zip', 'xml', 'jpg', 'jpeg', 'gif', 'svg', 'webm')
-    path = urlparse(url).path
-    return path.endswith(static)
+# regexes
+# flake8: noqa
+LINK_RE = re.compile(r'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
+ERROR_CODE_RE = re.compile(r'([4|5][\d]{2})')
 
 
+# Click Validators
 def validate_allowed_codes(ctx, param, value):
     if not value:
         return []
     codes = value.split(',')
-    codes = list(map(strip_func, codes))
+    codes = list(map(str.strip, codes))
     codes = list(filter(lambda x: ERROR_CODE_RE.match(x), codes))
     if not codes:
         raise click.BadParameter('--allow-codes param must be comma splitted')
@@ -59,8 +40,63 @@ def validate_whitelist(ctx, param, value):
         return []
 
     whitelist = value.split(',')
-    whitelist = list(map(strip_func, whitelist))
+    whitelist = list(map(str.strip, whitelist))
     return whitelist
+
+
+def is_static(url):
+    # TODO: try to find a better way of getting static files
+    static = ('zip', 'xml', 'jpg', 'jpeg', 'gif', 'svg', 'webm', 'png')
+    path = urlparse(url).path
+    return path.endswith(static)
+
+
+async def _fetch_and_print_status(url, session, allow_codes, timeout):
+    try:
+        async with session.head(url, timeout=timeout) as res:
+            status_code = str(res.status)
+            is_error_code = ERROR_CODE_RE.match(status_code)
+            color = 'green'
+            if is_error_code:
+                if status_code not in allow_codes:
+                    ERRORS.append((res.status, res.url))
+                    color = 'red'
+                else:
+                    WHITELISTED.append(res.url)
+            status = click.style(status_code, fg=color)
+            click.echo('[{}] {}'.format(status, res.url))
+            return await res.read()
+    except Exception as e:
+        EXCEPTIONS.append((url, e))
+
+
+async def _bound_fetch(sem, url, session, allow_codes, timeout):
+    async with sem:
+        await _fetch_and_print_status(url, session, allow_codes, timeout)
+
+
+def main_urls_processor(requests, allow_codes, timeout):
+    async def _run():
+        sem = asyncio.Semaphore(1000)
+        tasks = []
+        conn = aiohttp.TCPConnector(verify_ssl=False)
+
+        async with ClientSession(connector=conn) as session:
+            for r in requests:
+                task = asyncio.ensure_future(_bound_fetch(sem, r, session,
+                                                          allow_codes,
+                                                          timeout))
+                tasks.append(task)
+
+            responses = asyncio.gather(*tasks)
+            await responses
+
+    loop = uvloop.new_event_loop()
+    asyncio.set_event_loop(loop)
+    job = asyncio.ensure_future(_run())
+    loop.run_until_complete(job)
+    loop.close()
+    return True
 
 
 @click.command()
@@ -132,7 +168,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
 
         # whitelisted
         if whitelist:
-            exists = [i for i in whitelist if i in parsed.netloc]
+            exists = [i for i in whitelist if i in link]
             if len(exists):
                 WHITELISTED.append(link)
                 continue
@@ -142,23 +178,8 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
     counts_keys = counts.keys()
     DUPES.extend([(i, counts[i]) for i in counts_keys if counts[i] > 1])
 
-    requests = (grequests.head(u, timeout=timeout, verify=False) for u in request_urls)
-    responses = grequests.imap(requests, exception_handler=handle_exception,
-                               size=size)
-
-    for res in responses:
-        status_code = str(res.status_code)
-        is_error_code = ERROR_CODE_RE.match(status_code)
-        color = 'green'
-        if is_error_code:
-            if status_code not in allow_codes:
-                ERRORS.append((res.status_code, res.url))
-                color = 'red'
-            else:
-                WHITELISTED.append(res.url)
-
-        status = click.style(str(res.status_code), fg=color)
-        click.echo('[{}] {}'.format(status, res.url))
+    # magic!
+    main_urls_processor(request_urls, allow_codes, timeout)
 
     errors_len = len(ERRORS)
     exceptions_len = len(EXCEPTIONS)
@@ -173,9 +194,7 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
             click.echo('[{0}] {1}'.format(code, url))
 
     if exceptions_len and debug:
-        import ssl
         click.echo('Exceptions raised:')
-        click.echo('Note: OpenSSL Version = {0}'.format(ssl.OPENSSL_VERSION))
         click.secho('Check URLs for possible false positives', fg='yellow')
         for url, exception in EXCEPTIONS:
             click.echo('- {0}'.format(url))
