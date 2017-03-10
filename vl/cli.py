@@ -24,12 +24,13 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 # globals
 # flake8: noqa
 LINK_RE = re.compile(r'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
-ERROR_CODE_RE = re.compile(r'([4|5][\d]{2})')
 ERRORS = []
 EXCEPTIONS = []
 DUPES = []
 WHITELISTED = []
 STATICS = []
+
+is_error_code = lambda code: code < 200 or code >= 400
 
 
 def handle_exception(request, exception):
@@ -48,9 +49,15 @@ def validate_allowed_codes(ctx, param, value):
         return []
     codes = value.split(',')
     codes = list(map(strip_func, codes))
-    codes = list(filter(lambda x: ERROR_CODE_RE.match(x), codes))
+    try:
+        codes = list(map(int, codes))
+    except ValueError:
+        raise click.BadParameter('--allow-codes codes must be integers')
+
+    codes = list(filter(is_error_code, codes))
     if not codes:
-        raise click.BadParameter('--allow-codes param must be comma splitted')
+        raise click.BadParameter('--allow-codes param must be comma splitted '
+                                 'and only http error codes')
     return codes
 
 
@@ -133,12 +140,13 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
         # whitelisted
         if whitelist:
             exists = [i for i in whitelist if i in parsed.netloc]
-            if len(exists):
+            if exists:
                 WHITELISTED.append(link)
                 continue
 
         request_urls.append(link)
 
+    # removing dupes
     counts_keys = counts.keys()
     DUPES.extend([(i, counts[i]) for i in counts_keys if counts[i] > 1])
 
@@ -147,11 +155,9 @@ def main(doc, timeout, size, debug, allow_codes, whitelist):
                                size=size)
 
     for res in responses:
-        status_code = str(res.status_code)
-        is_error_code = ERROR_CODE_RE.match(status_code)
         color = 'green'
-        if is_error_code:
-            if status_code not in allow_codes:
+        if is_error_code(res.status_code):
+            if res.status_code not in allow_codes:
                 ERRORS.append((res.status_code, res.url))
                 color = 'red'
             else:

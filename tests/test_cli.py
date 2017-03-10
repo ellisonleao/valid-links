@@ -11,6 +11,7 @@ def reset_globals():
     cli.DUPES = []
     cli.EXCEPTIONS = []
     cli.WHITELISTED = []
+    cli.STATICS = []
 
 
 @pytest.fixture
@@ -218,6 +219,7 @@ def test_cli_with_allow_codes(runner, valid_urls):
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
         assert len(cli.DUPES) == 0
+        assert len(cli.WHITELISTED) == 2
 
 
 @responses.activate
@@ -293,3 +295,37 @@ def test_cli_with_static(runner, valid_urls_with_static):
         assert len(cli.ERRORS) == 0
         assert len(cli.EXCEPTIONS) == 0
         assert len(cli.STATICS) == 1
+
+
+@responses.activate
+def test_cli_with_errors_only(runner, valid_urls):
+    reset_globals()
+    urls = (
+        ('http://www.test1.com', 400),
+        ('http://www.test2.com', 500),
+        ('http://www.test3.com', 103),
+    )
+    for url, code in urls:
+        responses.add(responses.HEAD, url, status=code)
+
+    with runner.isolated_filesystem():
+        with open('errors.md', 'w') as f:
+            f.write(valid_urls)
+
+        result = runner.invoke(cli.main, ['errors.md', '--debug'])
+        assert result.exit_code == 1
+        assert len(cli.ERRORS) == 3
+        assert len(cli.EXCEPTIONS) == 0
+        assert len(cli.STATICS) == 0
+
+
+@responses.activate
+def test_cli_with_good_codes_on_allow_codes(runner, valid_urls):
+    reset_globals()
+    with runner.isolated_filesystem():
+        with open('errors.md', 'w') as f:
+            f.write(valid_urls)
+
+        result = runner.invoke(cli.main, ['errors.md', '-a 200,301',
+                                          '--debug'])
+        assert result.exit_code == 2
