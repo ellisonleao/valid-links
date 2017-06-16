@@ -14,7 +14,7 @@ setup(
     name='vl',
     version=__version__,
     url='https://github.com/ellisonleao/vl',
-    license='MIT',
+    license='GPLv3',
     author=__author__,
     author_email='ellisonleao@gmail.com',
     description='A URL link checker CLI command for text files.',
