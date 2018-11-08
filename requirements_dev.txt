@@ -1,5 +1,5 @@
 pytest==3.9.3
 pytest-cov==2.6.0
-responses==0.10.2
+responses==0.10.3
 flake8==3.6.0
 pytest-sugar==0.9.1
